@@ -41,7 +41,7 @@ class TemplateManager(object):
         except pyes.exceptions.NotFoundException:
             log.warn("Template %s doesn't exist for comparison", name)
             return False
-        comparison = (res == data)
+        comparison = (res[name] == data)
         if comparison:
             log.info('Template %s and passed data are the same', name)
         else:
