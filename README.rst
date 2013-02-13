@@ -25,6 +25,7 @@ Currently available tools within ``estools``
 Command              Description
 ==================   ======================================================
 es-rotate            Rotate a "current" alias for a set of daily indices
+es-river             Create, delete and compare rivers
 ==================   ======================================================
 
 License
