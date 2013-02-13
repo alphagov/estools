@@ -17,7 +17,11 @@ class RiverManager(object):
 
     def get(self, name):
         log.info('Fetching river %s', name)
-        res = self.es._send_request('GET', '/_river/{0}/_meta'.format(name))
+        try:
+            res = self.es._send_request('GET', '/_river/{0}/_meta'.format(name))
+        except pyes.exceptions.NotFoundException:
+            log.warn("River %s doesn't exist", name)
+            return None
         if not res.exists:
             log.warn("River %s doesn't exist", name)
             return None
@@ -30,7 +34,7 @@ class RiverManager(object):
     def delete(self, name):
         log.info('Deleting river %s', name)
         try:
-            self.es.delete_river(name)
+            self.es.delete_river({}, river_name=name)
         except pyes.exceptions.TypeMissingException:
             log.warn("River %s doesn't exist to delete", name)
 
