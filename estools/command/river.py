@@ -15,6 +15,14 @@ class RiverManager(object):
     def __init__(self, hosts):
         self.es = pyes.ES(hosts)
 
+    def get(self, name):
+        log.info('Fetching river %s', name)
+        res = self.es._send_request('GET', '/_river/{0}/_meta'.format(name))
+        if not res.exists:
+            log.warn("River %s doesn't exist", name)
+            return None
+        return res._source
+
     def create(self, name, data):
         log.info('Creating river %s from passed data', name)
         self.es.create_river(data, river_name=name)
@@ -42,6 +50,19 @@ class RiverManager(object):
 
 
 @arg('name', help='River name')
+def get(args):
+    """
+    Get a river by name.
+    """
+    m = RiverManager(args.hosts)
+    r = m.get(args.name)
+    if r:
+        print(json.dumps(r, indent=2))
+    else:
+        sys.exit(1)
+
+
+@arg('name', help='River name')
 def create(args):
     """
     Create a river. This command expects to be fed a JSON document on STDIN.
@@ -58,6 +79,7 @@ def delete(args):
     """
     m = RiverManager(args.hosts)
     m.delete(args.name)
+
 
 @arg('name', help='River name')
 def compare(args):
@@ -79,7 +101,7 @@ parser.add_argument('-H', '--hosts',
                     nargs='+',
                     default=['localhost:9200'],
                     help='elasticsearch hosts to connect to')
-parser.add_commands([create, delete, compare])
+parser.add_commands([get, create, delete, compare])
 
 
 def main():
