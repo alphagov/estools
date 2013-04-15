@@ -71,7 +71,7 @@ class Rotator(object):
 
             if index_date < cutoff:
                 log.info("Index %s older than cutoff %s: deleting", name, cutoff.strftime(self.date_format))
-                #self.es.indices.delete_index(name)
+                self.es.indices.delete_index(name)
             else:
                 log.debug('Index %s younger than cutoff %s: keeping', name, cutoff.strftime(self.date_format))
 
