@@ -12,6 +12,7 @@ DEFAULT_DATE_FORMAT = '%Y.%m.%d'
 DEFAULT_SEPARATOR = '-'
 DEFAULT_CURRENT_ALIAS_NAME = 'current'
 DEFAULT_DELETE_MAXAGE = timedelta(days=31)
+DEFAULT_COMPRESS_MAXAGE = timedelta(days=1)
 
 
 class Rotator(object):
@@ -22,7 +23,9 @@ class Rotator(object):
                  separator=None,
                  current_alias_name=None,
                  delete_old=False,
-                 delete_maxage=None):
+                 delete_maxage=None,
+                 compress_old=False,
+                 compress_maxage=None):
 
         self.es = pyes.ES(hosts)
 
@@ -31,6 +34,8 @@ class Rotator(object):
         self.current_alias_name = current_alias_name or DEFAULT_CURRENT_ALIAS_NAME
         self.delete_old = delete_old
         self.delete_maxage = delete_maxage or DEFAULT_DELETE_MAXAGE
+        self.compress_old = compress_old
+        self.compress_maxage = compress_maxage or DEFAULT_COMPRESS_MAXAGE
 
     def rotate(self, prefix):
         now = datetime.utcnow()
@@ -45,12 +50,27 @@ class Rotator(object):
         log.info('Setting alias %s to point at index %s', cur_alias, now_index)
         self.es.indices.set_alias(cur_alias, now_index)
 
-        if self.delete_old:
-            self.delete_old_indices(prefix)
+        if self.compress_old:
+            log.info("Compressing old indices")
+            self.for_old_indices(prefix, self.compress_maxage, self.compress_index)
 
-    def delete_old_indices(self, prefix):
+        if self.delete_old:
+            log.info("Deleting old indices")
+            self.for_old_indices(prefix, self.delete_maxage, self.delete_index)
+
+    def compress_index(self, name):
+        log.info("Index %s is being compressed", name)
+        self.es.indices.update_settings(name, {
+           "index": { "store.compress.stored": True } 
+        })
+
+    def delete_index(self, name):
+        log.info("Index %s is being deleted", name)
+        self.es.indices.delete_index(name)
+
+    def for_old_indices(self, prefix, maxage, fn):
         now = datetime.utcnow()
-        cutoff = now - self.delete_maxage
+        cutoff = now - maxage
 
         index_names = self.es.indices.get_indices().keys()
 
@@ -70,10 +90,12 @@ class Rotator(object):
                 continue
 
             if index_date < cutoff:
-                log.info("Index %s older than cutoff %s: deleting", name, cutoff.strftime(self.date_format))
-                self.es.indices.delete_index(name)
+                log.info("Index %s older than cutoff %s", name, cutoff.strftime(self.date_format))
+                fn(name)
             else:
-                log.debug('Index %s younger than cutoff %s: keeping', name, cutoff.strftime(self.date_format))
+                log.debug('Index %s younger than cutoff %s', name, cutoff.strftime(self.date_format))
+
+        
 
 
 def _timedelta(days):
@@ -104,6 +126,13 @@ def _timedelta(days):
      metavar='DAYS',
      type=_timedelta,
      help='maximum age of an index in days before it will be deleted by --delete-old')
+@arg('--compress-old',
+     default=False,
+     help='compress old indices')
+@arg('--compress-maxage',
+     metavar='DAYS',
+     type=_timedelta,
+     help='maximum age of an index in days before it will be compressed by --compress-old')
 def rotate(prefixes, hosts, **kwargs):
     """
     Rotates a set of daily indices by updating a "-current" alias to point to
