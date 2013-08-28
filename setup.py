@@ -4,9 +4,20 @@ from setuptools import setup, find_packages
 
 from estools import __version__
 
+try:
+    import multiprocessing
+except ImportError:
+    pass
+
 requirements = [
     'argh==0.23.0',
     'pyes==0.19.1',
+]
+
+test_requirements = [
+    'mock==1.0.1',
+    'nose==1.3.0',
+    'freezegun==0.1.7',
 ]
 
 if sys.version_info[:2] < (2, 7):
@@ -35,6 +46,9 @@ setup(
     keywords='sysadmin search elasticsearch templates rivers',
 
     install_requires=requirements,
+    tests_require=test_requirements,
+
+    test_suite='nose.collector',
 
     entry_points={
         'console_scripts': [

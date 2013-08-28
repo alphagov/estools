@@ -18,7 +18,7 @@ DEFAULT_COMPRESS_MAXAGE = timedelta(days=1)
 class Rotator(object):
 
     def __init__(self,
-                 hosts,
+                 es,
                  date_format=None,
                  separator=None,
                  current_alias_name=None,
@@ -27,7 +27,7 @@ class Rotator(object):
                  compress_old=False,
                  compress_maxage=None):
 
-        self.es = pyes.ES(hosts)
+        self.es = es
 
         self.date_format = date_format or DEFAULT_DATE_FORMAT
         self.separator = separator or DEFAULT_SEPARATOR
@@ -140,7 +140,7 @@ def rotate(prefixes, hosts, **kwargs):
     daily cronjob just after midnight.
     """
 
-    rotator = Rotator(hosts, **kwargs)
+    rotator = Rotator(pyes.ES(hosts), **kwargs)
 
     for prefix in prefixes:
         rotator.rotate(prefix)
