@@ -13,6 +13,7 @@ DEFAULT_SEPARATOR = '-'
 DEFAULT_CURRENT_ALIAS_NAME = 'current'
 DEFAULT_DELETE_MAXAGE = timedelta(days=31)
 DEFAULT_COMPRESS_MAXAGE = timedelta(days=1)
+DEFAULT_OPTIMIZE_MAXAGE = timedelta(days=1)
 
 
 class Rotator(object):
@@ -25,7 +26,9 @@ class Rotator(object):
                  delete_old=False,
                  delete_maxage=None,
                  compress_old=False,
-                 compress_maxage=None):
+                 compress_maxage=None,
+                 optimize_old=False,
+                 optimize_maxage=None):
 
         self.es = es
 
@@ -36,6 +39,8 @@ class Rotator(object):
         self.delete_maxage = delete_maxage or DEFAULT_DELETE_MAXAGE
         self.compress_old = compress_old
         self.compress_maxage = compress_maxage or DEFAULT_COMPRESS_MAXAGE
+        self.optimize_old = optimize_old
+        self.optimize_maxage = optimize_maxage or DEFAULT_OPTIMIZE_MAXAGE
 
     def rotate(self, prefix):
         now = datetime.utcnow()
@@ -50,6 +55,10 @@ class Rotator(object):
         log.info('Setting alias %s to point at index %s', cur_alias, now_index)
         self.es.indices.set_alias(cur_alias, now_index)
 
+        if self.optimize_old:
+          log.info("Optimizing old indices")
+          self.for_old_indices(prefix, timedelta(days=1), self.optimize_index)
+
         if self.compress_old:
             log.info("Compressing old indices")
             self.for_old_indices(prefix, self.compress_maxage, self.compress_index)
@@ -57,6 +66,10 @@ class Rotator(object):
         if self.delete_old:
             log.info("Deleting old indices")
             self.for_old_indices(prefix, self.delete_maxage, self.delete_index)
+
+    def optimize_index(self, name):
+        log.info("Index %s is being optimized", name)
+        self.es.optimize([name], { "max_num_segments", 1 })
 
     def compress_index(self, name):
         log.info("Index %s is being compressed", name)
@@ -133,6 +146,13 @@ def _timedelta(days):
      metavar='DAYS',
      type=_timedelta,
      help='maximum age of an index in days before it will be compressed by --compress-old')
+@arg('--optimize-old',
+     default=False,
+     help='optimize old indices')
+@arg('--optimize-maxage',
+     metavar='DAYS',
+     type=_timedelta,
+     help='maximum age of an index in days before it will be optimizeed by --optimize-old')
 def rotate(prefixes, hosts, **kwargs):
     """
     Rotates a set of daily indices by updating a "-current" alias to point to
