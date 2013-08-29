@@ -5,6 +5,9 @@ from mock import Mock, call
 
 from estools.command.rotate import Rotator
 
+COMPRESS_MAP = { "index": { "store.compress.stored": True } }
+OPTIMIZE_ARGS_SET = set([ "max_num_segments", 1 ])
+
 def to_map(m, i):
     m[i] = {}
     return m
@@ -28,6 +31,7 @@ class TestRotateCommand(unittest.TestCase):
 
         rotator.rotate('logs')
 
+        print es.optimize.call_count
         expected_index_name = 'logs-2013.08.28'
         self.assertEqual(
             es.indices.create_index_if_missing.call_args_list,
@@ -37,6 +41,19 @@ class TestRotateCommand(unittest.TestCase):
             es.indices.set_alias.call_args_list,
             [ call('logs-current', expected_index_name) ]
         )
+
+    @freeze_time("2013-08-28")
+    def test_no_opts_run_by_default(self):
+        es = mock_es(['logs-2013.08.28', 'logs-2013.07.28', 'logs-2013.07.27'])
+
+        rotator = Rotator(es)
+
+        rotator.rotate('logs')
+
+        # ensure that no options are run when they are not flagged
+        self.assertEqual(es.indices.delete_index.call_count, 0)
+        self.assertEqual(es.indices.update_settings.call_count, 0)
+        self.assertEqual(es.optimize.call_count, 0)
 
     @freeze_time("2013-08-28")
     def test_old_indices(self):
@@ -74,8 +91,44 @@ class TestRotateCommand(unittest.TestCase):
 
         self.assertEqual(
             es.indices.update_settings.call_args_list,
-            [ call('logs-2013.08.26', { "index": { "store.compress.stored": True } }) ]
+            [ call('logs-2013.08.26', COMPRESS_MAP) ]
         )
 
+    @freeze_time("2013-08-28")
+    def test_rotate_optimize(self):
+        es = mock_es(['logs-2013.08.28', 'logs-2013.08.26'])
+
+        rotator = Rotator(es, optimize_old = True)
+
+        rotator.rotate('logs')
+
+        self.assertEqual(
+            es.optimize.call_args_list,
+            [ call(['logs-2013.08.26'], OPTIMIZE_ARGS_SET) ]
+        )
+
+    @freeze_time("2013-08-28")
+    def test_all_opts(self):
+        es = mock_es(['logs-2013.08.28', 'logs-2013.07.28', 'logs-2013.07.27'])
+
+        rotator = Rotator(es, delete_old=True, compress_old=True, optimize_old=True)
+
+        rotator.rotate('logs')
+
+        self.assertEqual(
+            es.indices.delete_index.call_args_list,
+            [ call('logs-2013.07.27') ]
+        )
+        self.assertEqual(
+            es.indices.update_settings.call_args_list,
+            [ call('logs-2013.07.27', COMPRESS_MAP), call('logs-2013.07.28', COMPRESS_MAP) ]
+        )
+        self.assertEqual(
+            es.optimize.call_args_list, 
+            [ 
+              call(['logs-2013.07.27'], OPTIMIZE_ARGS_SET), 
+              call(['logs-2013.07.28'], OPTIMIZE_ARGS_SET) 
+            ]
+        )
 
 
