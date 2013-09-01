@@ -69,12 +69,12 @@ class Rotator(object):
 
     def optimize_index(self, name):
         log.info("Index %s is being optimized", name)
-        self.es.optimize([name], { "max_num_segments", 1 })
+        self.es.optimize([name], max_num_segments=1 )
 
     def compress_index(self, name):
         log.info("Index %s is being compressed", name)
         self.es.indices.update_settings(name, {
-           "index": { "store.compress.stored": True } 
+           "index": { "store.compress.stored": True }
         })
 
     def delete_index(self, name):
@@ -108,7 +108,7 @@ class Rotator(object):
             else:
                 log.debug('Index %s younger than cutoff %s', name, cutoff.strftime(self.date_format))
 
-        
+
 
 
 def _timedelta(days):
