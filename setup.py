@@ -11,7 +11,7 @@ except ImportError:
 
 requirements = [
     'argh==0.23.0',
-    'pyes==0.19.1',
+    'pyes==0.99.5',
 ]
 
 test_requirements = [
