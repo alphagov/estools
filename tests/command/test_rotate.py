@@ -6,7 +6,7 @@ from mock import Mock, call
 from estools.command.rotate import Rotator
 
 COMPRESS_MAP = { "index": { "store.compress.stored": True } }
-OPTIMIZE_ARGS_SET = set([ "max_num_segments", 1 ])
+OPTIMIZE_ARGS_SET = { "max_num_segments": 1 }
 
 def to_map(m, i):
     m[i] = {}
@@ -104,7 +104,7 @@ class TestRotateCommand(unittest.TestCase):
 
         self.assertEqual(
             es.optimize.call_args_list,
-            [ call(['logs-2013.08.26'], OPTIMIZE_ARGS_SET) ]
+            [ call(['logs-2013.08.26'], **OPTIMIZE_ARGS_SET) ]
         )
 
     @freeze_time("2013-08-28")
@@ -126,8 +126,8 @@ class TestRotateCommand(unittest.TestCase):
         self.assertEqual(
             es.optimize.call_args_list, 
             [ 
-              call(['logs-2013.07.27'], OPTIMIZE_ARGS_SET), 
-              call(['logs-2013.07.28'], OPTIMIZE_ARGS_SET) 
+              call(['logs-2013.07.27'], **OPTIMIZE_ARGS_SET), 
+              call(['logs-2013.07.28'], **OPTIMIZE_ARGS_SET) 
             ]
         )
 
